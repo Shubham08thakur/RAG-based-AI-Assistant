@@ -134,16 +134,10 @@ def reload_chunks_and_embeddings():
             df = pd.read_csv(CSV_FILE)
             emb_cols = [col for col in df.columns if col.startswith("embedding_")]
             
-            # Check dimension compatibility if Gemini is enabled (requires 768 dimensions)
-            expected_dim = 768 if GEMINI_API_KEY else None
-            
+            # Do not enforce a hardcoded embedding dimension here — accept CSV as authoritative
             if emb_cols:
                 csv_dim = len(emb_cols)
-                if expected_dim is not None and csv_dim != expected_dim:
-                    pm.log(f"Dimension mismatch: CSV is {csv_dim}-dim, but Gemini requires {expected_dim}-dim. Re-computation needed.")
-                    embeddings_df = None
-                    embeddings_matrix = None
-                elif len(df) == len(chunks_cache) and set(df.get("chunk_file", [])) == set(c.get("chunk_file") for c in chunks_cache):
+                if len(df) == len(chunks_cache) and set(df.get("chunk_file", [])) == set(c.get("chunk_file") for c in chunks_cache):
                     embeddings_df = df
                     embeddings_matrix = np.vstack([df.loc[:, emb_cols].iloc[i].to_numpy() for i in range(len(df))])
                     pm.log(f"Loaded embedding matrix of shape {embeddings_matrix.shape} from CSV")
@@ -388,14 +382,8 @@ def run_query(req: QueryRequest):
     if not chunks_cache:
         raise HTTPException(status_code=400, detail="No chunks loaded. Please ingest and chunk some transcripts first.")
         
-    # Check if dimensions match the expected target
-    expected_dim = 768 if GEMINI_API_KEY else None
-    
     if embeddings_matrix is None or len(chunks_cache) != embeddings_matrix.shape[0]:
         raise HTTPException(status_code=400, detail="Embeddings are not generated or mismatch chunk count. Please generate embeddings first.")
-
-    if expected_dim is not None and embeddings_matrix.shape[1] != expected_dim:
-        raise HTTPException(status_code=400, detail=f"Embeddings dimension mismatch. Expected {expected_dim} for Gemini, but loaded CSV contains {embeddings_matrix.shape[1]}. Please regenerate embeddings.")
 
     if cosine_similarity is None:
         raise HTTPException(status_code=500, detail="scikit-learn is not installed in the backend environment.")
@@ -414,8 +402,14 @@ def run_query(req: QueryRequest):
                     f"but stored embeddings are {embeddings_matrix.shape[1]}-dim. Please regenerate embeddings."
                 )
             )
+        # Select top matching chunks
+        top_k = min(5, len(chunks_cache))
+        top_indices = np.argsort(similarities)[::-1][:top_k]
+
+        retrieved_chunks = []
+        max_context = config["max_context_chunks"]
         max_chars = config["max_chunk_characters"]
-        
+
         for idx in top_indices:
             chunk = chunks_cache[idx]
             sim = float(similarities[idx])
@@ -536,7 +530,7 @@ def list_chunks(q: Optional[str] = None, page: int = 1, limit: int = 20):
     paginated = filtered[start_idx:end_idx]
     
     # Append similarity caching info if we have embeddings
-    expected_dim = 768 if GEMINI_API_KEY else None
+    expected_dim = None
     
     for c in paginated:
         has_emb = False
