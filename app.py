@@ -44,7 +44,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
 # Configuration State
 default_config = {
-    "embeddings_model": "bge-m3" if not GEMINI_API_KEY else "text-embedding-004",
+    "embeddings_model": "bge-m3" if not GEMINI_API_KEY else "textembedding-gecko-001",
     "ollama_url": "http://localhost:11434/api/embeddings",
     "completions_url": "http://localhost:11434/v1/completions",
     "llm_model": "llama3.2" if not GEMINI_API_KEY else "gemini-1.5-flash",
@@ -170,15 +170,11 @@ reload_chunks_and_embeddings()
 def request_embedding(text: str, config: dict) -> np.ndarray:
     if GEMINI_API_KEY:
         # Use Google Gemini API for Embeddings
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={GEMINI_API_KEY}"
+        gemini_model = os.environ.get("GEMINI_EMBEDDING_MODEL", "textembedding-gecko-001")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:embedText?key={GEMINI_API_KEY}"
         response = requests.post(
             url,
-            json={
-                "model": "models/text-embedding-004",
-                "content": {
-                    "parts": [{"text": text}]
-                }
-            },
+            json={"text": text},
             timeout=30,
         )
         if response.status_code != 200:
@@ -186,7 +182,9 @@ def request_embedding(text: str, config: dict) -> np.ndarray:
                 f"Gemini Embedding failed with status {response.status_code}: {response.text}"
             )
         data = response.json()
-        embedding = data.get("embedding", {}).get("values", [])
+        embedding = data.get("embedding")
+        if isinstance(embedding, dict):
+            embedding = embedding.get("values") or embedding.get("value") or []
         if not embedding:
             raise ValueError(f"Received empty embedding from Gemini: {data}")
         return np.array(embedding, dtype=float)
@@ -228,7 +226,7 @@ def compute_all_embeddings_background():
             return
 
         df = pd.DataFrame(chunks)
-        model_name = "Gemini text-embedding-004" if GEMINI_API_KEY else config['embeddings_model']
+        model_name = os.environ.get("GEMINI_EMBEDDING_MODEL", "textembedding-gecko-001") if GEMINI_API_KEY else config['embeddings_model']
         pm.log(f"Starting embeddings generation for {len(chunks)} chunks using model {model_name}...")
         
         # Check if we have some existing partial embeddings we can load
@@ -353,9 +351,7 @@ def get_status():
         emb_count = embeddings_matrix.shape[0]
         emb_dim = embeddings_matrix.shape[1]
 
-    expected_dim = 768 if GEMINI_API_KEY else 1024
-    needs_embeddings = (num_chunks > 0 and 
-                        (emb_count != num_chunks or emb_dim != expected_dim))
+    needs_embeddings = (num_chunks > 0 and emb_count != num_chunks)
 
     return {
         "transcripts_count": num_transcripts,
@@ -410,14 +406,14 @@ def run_query(req: QueryRequest):
         
         # Calculate cosine similarity
         similarities = cosine_similarity(query_emb.reshape(1, -1), embeddings_matrix)[0]
-        
-        # Get top matching indices
-        top_k = min(5, len(chunks_cache))
-        top_indices = np.argsort(similarities)[::-1][:top_k]
-        
-        # Gather context
-        retrieved_chunks = []
-        max_context = config["max_context_chunks"]
+        if query_emb.shape[0] != embeddings_matrix.shape[1]:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Embedding dimension mismatch. Query embedding is {query_emb.shape[0]}-dim, "
+                    f"but stored embeddings are {embeddings_matrix.shape[1]}-dim. Please regenerate embeddings."
+                )
+            )
         max_chars = config["max_chunk_characters"]
         
         for idx in top_indices:
@@ -462,15 +458,14 @@ def run_query(req: QueryRequest):
         
         # Call LLM (Gemini or Ollama)
         if GEMINI_API_KEY:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+            gemini_model = os.environ.get("GEMINI_LLM_MODEL", "gemini-1.5-flash")
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateText?key={GEMINI_API_KEY}"
             response = requests.post(
                 url,
                 json={
-                    "contents": [{
-                        "parts": [{
-                            "text": prompt
-                        }]
-                    }]
+                    "prompt": prompt,
+                    "temperature": 0.2,
+                    "maxOutputTokens": 512
                 },
                 timeout=60,
             )
@@ -481,11 +476,14 @@ def run_query(req: QueryRequest):
             answer = ""
             candidates = data.get("candidates", [])
             if candidates:
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if parts:
-                    answer = parts[0].get("text", "").strip()
+                first = candidates[0]
+                answer = first.get("output") or ""
+                if not answer:
+                    content = first.get("content", [])
+                    if content and isinstance(content, list):
+                        answer = content[0].get("text", "").strip()
             if not answer:
-                answer = "Error: Received empty response from Gemini API"
+                answer = data.get("text", "") or data.get("output", "") or "Error: Received empty response from Gemini API"
         else:
             response = requests.post(
                 config["completions_url"],
