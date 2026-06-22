@@ -1,0 +1,10 @@
+{
+  "embeddings_model": "bge-m3",
+  "ollama_url": "http://localhost:11434/api/embeddings",
+  "completions_url": "http://localhost:11434/v1/completions",
+  "llm_model": "llama3.2",
+  "max_context_chunks": 1,
+  "max_chunk_characters": 800,
+  "chunk_size": 300,
+  "overlap": 50
+}

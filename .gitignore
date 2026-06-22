@@ -1,0 +1,22 @@
+# Virtual environment
+venv/
+ENV/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local media contents (to avoid committing large binary files)
+videos/*.mp4
+audios/*.mp3
+
+# Log files
+*.log
+
+# System files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Teaching Assistant Dashboard</title>
+    <!-- Inter Font from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon"></div>
+                <div class="logo-text">
+                    <h2>RAG Assistant</h2>
+                    <span>Teaching Assistant</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" data-target="chat-panel">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Chat Assistant
+                </button>
+                <button class="nav-item" data-target="explorer-panel">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    Chunk Explorer
+                </button>
+                <button class="nav-item" data-target="pipeline-panel">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    Ingestion Pipeline
+                </button>
+                <button class="nav-item" data-target="settings-panel">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    Configuration
+                </button>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="status-dot online" id="server-status-dot"></span>
+                    <span class="status-text" id="server-status-text">Server Online</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-bar">
+                <h1 id="panel-title">Chat Assistant</h1>
+                <div class="quick-stats">
+                    <div class="stat-badge">
+                        <span class="stat-label">Transcripts</span>
+                        <span class="stat-val" id="stat-transcripts">-</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-label">Chunks</span>
+                        <span class="stat-val" id="stat-chunks">-</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-label">Embeddings</span>
+                        <span class="stat-val" id="stat-embeddings">-</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- PANELS CONTAINER -->
+            <div class="panels-container">
+                
+                <!-- 1. CHAT PANEL -->
+                <section id="chat-panel" class="panel active">
+                    <div class="chat-layout">
+                        <!-- Chat history window -->
+                        <div class="chat-wrapper">
+                            <div class="chat-history" id="chat-history">
+                                <div class="message system-message">
+                                    <div class="message-content">
+                                        Hello! I'm your RAG Teaching Assistant. Ask me anything based on your loaded transcripts.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <form id="chat-form" class="chat-form">
+                                    <input type="text" id="query-input" placeholder="Ask a question about the tutorials..." autocomplete="off" required>
+                                    <button type="submit" id="send-btn">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="send-icon"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <!-- Collapsible RAG inspect side-panel -->
+                        <aside class="rag-inspect-panel" id="rag-inspect-panel">
+                            <h3>RAG Sources Inspector</h3>
+                            <div id="no-inspect-data" class="empty-state">
+                                Ask a question to see retrieved sources and prompt contents.
+                            </div>
+                            <div id="inspect-data" class="inspect-data hidden">
+                                <div class="inspect-section">
+                                    <h4>Retrieval Details</h4>
+                                    <div id="inspect-sources"></div>
+                                </div>
+                                <div class="inspect-section">
+                                    <h4>Final Prompt Sent to LLM</h4>
+                                    <pre class="prompt-pre" id="inspect-prompt"></pre>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+                </section>
+
+                <!-- 2. EXPLORER PANEL -->
+                <section id="explorer-panel" class="panel">
+                    <div class="panel-card">
+                        <div class="card-header">
+                            <h3>Browse Transcript Chunks</h3>
+                            <div class="search-bar">
+                                <input type="text" id="chunk-search" placeholder="Search chunks by content...">
+                                <button id="search-btn" class="btn primary">Search</button>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 80px;">ID</th>
+                                        <th style="width: 120px;">Tutorial #</th>
+                                        <th>Tutorial Name</th>
+                                        <th>Text Excerpt</th>
+                                        <th style="width: 120px; text-align: center;">Embedding</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="chunks-tbody">
+                                    <tr>
+                                        <td colspan="5" class="empty-table">Loading chunks database...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="pagination">
+                            <span class="pagination-info" id="pagination-info">Showing 0 of 0 chunks</span>
+                            <div class="pagination-controls">
+                                <button id="prev-page" class="btn" disabled>Previous</button>
+                                <button id="next-page" class="btn" disabled>Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. PIPELINE / INGESTION PANEL -->
+                <section id="pipeline-panel" class="panel">
+                    <div class="pipeline-grid">
+                        
+                        <!-- Upload card -->
+                        <div class="panel-card">
+                            <h3>Upload Content</h3>
+                            <p class="card-subtitle">Ingest transcript files (.txt) or video tutorials (.mp4) into the repository.</p>
+                            
+                            <div class="upload-dropzone" id="dropzone">
+                                <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                                <span>Drag & Drop files here or <strong>Browse</strong></span>
+                                <input type="file" id="file-input" multiple accept=".txt,.mp4" style="display: none;">
+                            </div>
+                            
+                            <div class="upload-list-wrapper">
+                                <h4>Upload Queue</h4>
+                                <ul class="upload-list" id="upload-list">
+                                    <li class="empty-item">No uploads in progress</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Pipeline Controller card -->
+                        <div class="panel-card">
+                            <h3>Execution Pipeline</h3>
+                            <p class="card-subtitle">Convert video feeds, transcribe audio with Whisper, build chunks, and compute embeddings.</p>
+                            
+                            <div class="pipeline-controls">
+                                <button class="btn primary full-width py-3 mb-4" id="run-all-pipeline-btn">
+                                    ⚡ Run Full Pipeline (End-to-End)
+                                </button>
+                                
+                                <div class="step-card">
+                                    <div class="step-number">1</div>
+                                    <div class="step-details">
+                                        <h4>Extract Audio</h4>
+                                        <p>Convert videos/ to audios/ .mp3 (ffmpeg)</p>
+                                    </div>
+                                    <button class="btn secondary" data-action="convert">Run</button>
+                                </div>
+
+                                <div class="step-card">
+                                    <div class="step-number">2</div>
+                                    <div class="step-details">
+                                        <h4>Transcribe Whisper</h4>
+                                        <p>Transcribe audios/ to transcripts/ (Speech-To-Text)</p>
+                                    </div>
+                                    <button class="btn secondary" data-action="transcribe">Run</button>
+                                </div>
+
+                                <div class="step-card">
+                                    <div class="step-number">3</div>
+                                    <div class="step-details">
+                                        <h4>Rebuild Chunks</h4>
+                                        <p>Split source texts into overlapping chunks</p>
+                                    </div>
+                                    <button class="btn secondary" data-action="chunk">Run</button>
+                                </div>
+
+                                <div class="step-card">
+                                    <div class="step-number">4</div>
+                                    <div class="step-details">
+                                        <h4>Generate Embeddings</h4>
+                                        <p>Compute vector embeddings for all loaded chunks</p>
+                                    </div>
+                                    <button class="btn secondary" data-action="embeddings">Run</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Console Logs card -->
+                        <div class="panel-card full-width">
+                            <div class="card-header">
+                                <h3>Pipeline Live Console</h3>
+                                <button class="btn small" id="clear-logs-btn">Clear Logs</button>
+                            </div>
+                            <div class="console-box" id="console-box">
+                                <pre id="console-logs">Console idle. Awaiting command execution...</pre>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. CONFIGURATION PANEL -->
+                <section id="settings-panel" class="panel">
+                    <div class="panel-card max-width-md">
+                        <h3>Model & Retrieval Settings</h3>
+                        <p class="card-subtitle">Customize endpoints, parameters, and models used by the RAG Teaching Assistant.</p>
+                        
+                        <form id="settings-form" class="settings-form">
+                            <div class="form-group-row">
+                                <div class="form-group">
+                                    <label for="ollama-url">Ollama Embeddings URL</label>
+                                    <input type="url" id="ollama-url" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="embeddings-model">Embeddings Model</label>
+                                    <input type="text" id="embeddings-model" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group-row">
+                                <div class="form-group">
+                                    <label for="completions-url">Ollama Completions URL</label>
+                                    <input type="url" id="completions-url" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="llm-model">LLM Model (Completion)</label>
+                                    <input type="text" id="llm-model" required>
+                                </div>
+                            </div>
+
+                            <div class="divider">Retrieval Settings</div>
+
+                            <div class="form-group-row">
+                                <div class="form-group">
+                                    <label for="max-context-chunks">Max Context Chunks</label>
+                                    <input type="number" id="max-context-chunks" min="1" max="10" required>
+                                    <span class="field-hint">Number of transcript chunks injected in prompt</span>
+                                </div>
+                                <div class="form-group">
+                                    <label for="max-chunk-characters">Max Chunk Characters</label>
+                                    <input type="number" id="max-chunk-characters" min="100" max="5000" required>
+                                    <span class="field-hint">Cutoff limit per retrieved chunk to avoid overflow</span>
+                                </div>
+                            </div>
+
+                            <div class="divider">Chunking Settings</div>
+
+                            <div class="form-group-row">
+                                <div class="form-group">
+                                    <label for="chunk-size">Chunk Size (Words)</label>
+                                    <input type="number" id="chunk-size" min="50" max="2000" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="overlap">Chunk Overlap (Words)</label>
+                                    <input type="number" id="overlap" min="0" max="1000" required>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit" class="btn primary py-2 px-5">Save Configuration</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Alert toast container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
